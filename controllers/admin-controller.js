@@ -4,7 +4,7 @@ const Seller = require("../models/seller-model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
-// Register new admin
+// Register new admin 
 exports.registerAdmin = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
@@ -36,8 +36,7 @@ exports.loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-    console.log("Password from DB:", admin.password);
-    console.log("Password entered:", password);
+    
     const isMatch = await bcrypt.compare(password, admin.password);
     console.log("Is match?", isMatch);
     if (!isMatch) return res.status(401).json({ error: "Invalid password" });
