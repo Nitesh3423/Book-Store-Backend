@@ -1,10 +1,11 @@
 const Admin = require("../models/admin-model");
+const mongoose = require("mongoose");
 const PendingSeller = require("../models/pending-seller-model");
 const Seller = require("../models/seller-model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
-// Register new admin 
+// Register new admin
 exports.registerAdmin = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
@@ -36,17 +37,14 @@ exports.loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-    
     const isMatch = await bcrypt.compare(password, admin.password);
     console.log("Is match?", isMatch);
     if (!isMatch) return res.status(401).json({ error: "Invalid password" });
 
     // Generate JWT
-    const token = jwt.sign(
-      { adminId: admin._id, role: "admin" },
-      JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = jwt.sign({ adminId: admin._id, role: "admin" }, JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
     res.json({ message: "Login successful", token });
   } catch (err) {
@@ -71,8 +69,15 @@ exports.approveSeller = async (req, res) => {
     const { sellerId } = req.params;
 
     const pending = await PendingSeller.findById(sellerId);
-    if (!pending)
+    if (!pending) {
       return res.status(404).json({ error: "Pending seller not found" });
+    }
+
+    // Check if seller already exists
+    const existingSeller = await Seller.findOne({ email: pending.email });
+    if (existingSeller) {
+      return res.status(400).json({ error: "Seller already approved" });
+    }
 
     const newSeller = new Seller({
       fullName: pending.fullName,
@@ -86,13 +91,22 @@ exports.approveSeller = async (req, res) => {
     });
 
     await newSeller.save();
-    await PendingSeller.findByIdAndDelete(sellerId);
+    const deleteResult = await PendingSeller.findByIdAndDelete(sellerId);
+
+    if (!deleteResult) {
+      console.error(
+        "Failed to delete seller from PendingSeller. ID might be invalid or already removed."
+      );
+    } else {
+      console.log("Deleted pending seller:", deleteResult.email);
+    }
 
     res.json({
       message: "Seller approved and registered",
       sellerId: newSeller._id,
     });
   } catch (err) {
+    console.error("Error approving seller:", err);
     res.status(500).json({ error: "Approval failed" });
   }
 };
