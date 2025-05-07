@@ -57,6 +57,13 @@ const productSchema = new mongoose.Schema({
   returnPolicy: String,
   isFeatured: { type: Boolean, default: false },
   isPublished: { type: Boolean, default: false },
+  approvalStatus: { 
+    type: String, 
+    enum: ['pending', 'approved', 'rejected'], 
+    default: 'pending' 
+  },
+  approvalDate: { type: Date },
+  approvalNote: { type: String }
 });
 
 module.exports = mongoose.model('Product', productSchema);

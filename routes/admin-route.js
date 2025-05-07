@@ -9,6 +9,8 @@ router.post('/login', adminController.loginAdmin);
 
 // Protected routes
 router.get('/pending-sellers', adminAuth, adminController.getPendingSellers);
+router.get('/approved-sellers', adminAuth, adminController.getApprovedSellers);
 router.put('/approve-seller/:sellerId', adminAuth, adminController.approveSeller);
+router.delete('/sellers/:sellerId', adminAuth, adminController.removeSeller);
 
 module.exports = router;
