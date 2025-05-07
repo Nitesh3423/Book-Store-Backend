@@ -63,6 +63,16 @@ exports.getPendingSellers = async (req, res) => {
   }
 };
 
+// View approved sellers
+exports.getApprovedSellers = async (req, res) => {
+  try {
+    const approvedSellers = await Seller.find({ registrationStatus: "approved" });
+    res.json(approvedSellers);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch approved sellers" });
+  }
+};
+
 // Approve seller
 exports.approveSeller = async (req, res) => {
   try {
@@ -108,5 +118,31 @@ exports.approveSeller = async (req, res) => {
   } catch (err) {
     console.error("Error approving seller:", err);
     res.status(500).json({ error: "Approval failed" });
+  }
+};
+
+// Remove seller
+exports.removeSeller = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    // Check if it's a pending seller
+    let seller = await PendingSeller.findById(sellerId);
+    if (seller) {
+      await PendingSeller.findByIdAndDelete(sellerId);
+      return res.json({ message: "Pending seller removed successfully" });
+    }
+    
+    // Check if it's an approved seller
+    seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ error: "Seller not found" });
+    }
+    
+    await Seller.findByIdAndDelete(sellerId);
+    res.json({ message: "Seller removed successfully" });
+  } catch (err) {
+    console.error("Error removing seller:", err);
+    res.status(500).json({ error: "Failed to remove seller" });
   }
 };
