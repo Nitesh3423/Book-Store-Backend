@@ -4,6 +4,7 @@ const Product = require('../models/product-model');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
 const mongoose = require('mongoose');
+const Withdrawal = require('../models/withdrawal-model');
 
 // Register seller (Pending)
 exports.registerSeller = async (req, res) => {
@@ -26,7 +27,6 @@ exports.registerSeller = async (req, res) => {
     await pendingSeller.save();
     res.status(201).json({ message: 'Seller request submitted for approval' });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Error submitting request' });
   }
 };
@@ -147,7 +147,6 @@ exports.addProduct = async (req, res) => {
       product 
     });
   } catch (err) {
-    console.error('Error adding product:', err);
     res.status(500).json({ error: 'Error adding product: ' + err.message });
   }
 };
@@ -158,8 +157,6 @@ exports.getSellerProfile = async (req, res) => {
     // The seller ID comes from the auth middleware
     const sellerId = req.sellerId;
     
-    console.log('Getting profile for seller ID:', sellerId);
-    
     const seller = await Seller.findById(sellerId)
       .select('-password'); // Exclude password from the response
     
@@ -169,7 +166,6 @@ exports.getSellerProfile = async (req, res) => {
     
     res.json(seller);
   } catch (err) {
-    console.error('Error fetching seller profile:', err);
     res.status(500).json({ error: 'Failed to fetch seller profile' });
   }
 };
@@ -185,7 +181,6 @@ exports.getSellerDashboardStats = async (req, res) => {
       Order = mongoose.model('Order');
       Customer = mongoose.model('Customer');
     } catch (err) {
-      console.log('Models not yet registered:', err.message);
       // Return mock data if models aren't registered yet
       return res.json({
         totalProducts: 0,
@@ -281,7 +276,6 @@ exports.getSellerDashboardStats = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(5);
     } catch (err) {
-      console.error('Error fetching order data:', err);
       // Continue with zeros if there's an error
     }
     
@@ -334,7 +328,6 @@ exports.getSellerDashboardStats = async (req, res) => {
         }
       });
     } catch (err) {
-      console.error('Error updating seller stats:', err);
       // Continue even if stats update fails
     }
     
@@ -350,7 +343,6 @@ exports.getSellerDashboardStats = async (req, res) => {
       recentProducts
     });
   } catch (err) {
-    console.error('Error fetching dashboard stats:', err);
     res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
   }
 };
@@ -362,7 +354,6 @@ exports.logoutSeller = async (req, res) => {
     // This endpoint is mostly a formality
     res.json({ message: 'Logout successful' });
   } catch (err) {
-    console.error('Logout error:', err);
     res.status(500).json({ error: 'Logout failed' });
   }
 };
@@ -402,8 +393,43 @@ exports.updateSellerProfile = async (req, res) => {
       seller: updatedSeller
     });
   } catch (err) {
-    console.error('Error updating seller profile:', err);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+};
+
+// Update seller password
+exports.updatePassword = async (req, res) => {
+  try {
+    const sellerId = req.sellerId || req.seller._id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate request body
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    // Get seller with password
+    const seller = await Seller.findById(sellerId);
+    if (!seller) {
+      return res.status(404).json({ error: 'Seller not found' });
+    }
+
+    // Verify current password
+    if (seller.password !== currentPassword) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Update password
+    seller.password = newPassword;
+    seller.updatedAt = new Date();
+    await seller.save();
+
+    res.json({
+      message: 'Password updated successfully'
+    });
+  } catch (err) {
+    console.error('Error updating password:', err);
+    res.status(500).json({ error: 'Failed to update password' });
   }
 };
 
@@ -473,7 +499,6 @@ exports.getSellerProducts = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching seller products:', err);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 };
@@ -492,7 +517,6 @@ exports.getProductById = async (req, res) => {
     
     res.json(product);
   } catch (err) {
-    console.error('Error fetching product:', err);
     res.status(500).json({ error: 'Failed to fetch product' });
   }
 };
@@ -538,7 +562,6 @@ exports.updateProduct = async (req, res) => {
       product: updatedProduct
     });
   } catch (err) {
-    console.error('Error updating product:', err);
     res.status(500).json({ error: 'Failed to update product' });
   }
 };
@@ -557,7 +580,6 @@ exports.deleteProduct = async (req, res) => {
     
     res.json({ message: 'Product deleted successfully' });
   } catch (err) {
-    console.error('Error deleting product:', err);
     res.status(500).json({ error: 'Failed to delete product' });
   }
 };
@@ -581,7 +603,6 @@ exports.getSellerOrders = async (req, res) => {
     try {
       Order = mongoose.model('Order');
     } catch (err) {
-      console.log('Order model not registered yet:', err.message);
       // Return empty data if model isn't registered
       return res.json({
         orders: [],
@@ -637,15 +658,13 @@ exports.getSellerOrders = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .populate('user', 'name email')
-      .catch(err => {
-        console.error('Error querying orders:', err);
+      .catch(() => {
         return [];
       });
     
     // Get total count for pagination
     const totalOrders = await Order.countDocuments(query)
-      .catch(err => {
-        console.error('Error counting orders:', err);
+      .catch(() => {
         return 0;
       });
     
@@ -659,7 +678,6 @@ exports.getSellerOrders = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching seller orders:', err);
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 };
@@ -675,15 +693,13 @@ exports.getOrderById = async (req, res) => {
     try {
       Order = mongoose.model('Order');
     } catch (err) {
-      console.log('Order model not registered yet:', err.message);
       return res.status(404).json({ error: 'Order not found' });
     }
 
     // Find the order that belongs to this seller
     const order = await Order.findOne({ _id: orderId, sellerId })
       .populate('user', 'name email')
-      .catch(err => {
-        console.error('Error finding order:', err);
+      .catch(() => {
         return null;
       });
 
@@ -693,7 +709,6 @@ exports.getOrderById = async (req, res) => {
 
     res.json(order);
   } catch (err) {
-    console.error('Error fetching order details:', err);
     res.status(500).json({ error: 'Failed to fetch order details' });
   }
 };
@@ -720,7 +735,6 @@ exports.updateOrderStatus = async (req, res) => {
     try {
       Order = mongoose.model('Order');
     } catch (err) {
-      console.log('Order model not registered yet:', err.message);
       return res.status(404).json({ error: 'Order not found' });
     }
 
@@ -732,8 +746,7 @@ exports.updateOrderStatus = async (req, res) => {
         updatedAt: new Date()
       },
       { new: true }
-    ).catch(err => {
-      console.error('Error updating order:', err);
+    ).catch(() => {
       return null;
     });
 
@@ -743,7 +756,6 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({ message: 'Order status updated successfully', order });
   } catch (err) {
-    console.error('Error updating order status:', err);
     res.status(500).json({ error: 'Failed to update order status' });
   }
 };
@@ -764,7 +776,6 @@ exports.getSellerCustomers = async (req, res) => {
     try {
       Customer = mongoose.model('Customer');
     } catch (err) {
-      console.log('Customer model not registered yet:', err.message);
       // Return empty data if model isn't registered
       return res.json({
         customers: [],
@@ -814,15 +825,13 @@ exports.getSellerCustomers = async (req, res) => {
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
-      .catch(err => {
-        console.error('Error querying customers:', err);
+      .catch(() => {
         return [];
       });
     
     // Get total count for pagination
     const totalCustomers = await Customer.countDocuments(query)
-      .catch(err => {
-        console.error('Error counting customers:', err);
+      .catch(() => {
         return 0;
       });
     
@@ -836,7 +845,6 @@ exports.getSellerCustomers = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching seller customers:', err);
     res.status(500).json({ error: 'Failed to fetch customers' });
   }
 };
@@ -844,7 +852,7 @@ exports.getSellerCustomers = async (req, res) => {
 // Get transaction statistics
 exports.getTransactionStats = async (req, res) => {
   try {
-    const { sellerId } = req.seller;
+    const sellerId = req.seller._id;
     const { timeframe } = req.query;
 
     // Define the date range based on timeframe
@@ -865,13 +873,30 @@ exports.getTransactionStats = async (req, res) => {
       startDate.setFullYear(startDate.getFullYear() - 1);
     }
 
+    // Get Order model
+    let Order;
+    try {
+      Order = mongoose.model('Order');
+    } catch (err) {
+      // Return empty data if model isn't registered
+      return res.json({
+        totalAmount: 0,
+        transactionCount: 0,
+        avgOrderValue: 0,
+        mostPopularProduct: { name: '', count: 0 },
+        monthlyRevenue: []
+      });
+    }
+
     // Get all completed transactions within the date range
     const transactions = await Order.find({
       sellerId,
       status: 'Delivered',
       paymentStatus: 'Completed',
       createdAt: { $gte: startDate, $lte: endDate }
-    }).populate('products.product');
+    }).populate('products.product').catch(() => {
+      return [];
+    });
 
     // Calculate total revenue
     const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.totalAmount, 0);
@@ -934,7 +959,226 @@ exports.getTransactionStats = async (req, res) => {
       monthlyRevenue
     });
   } catch (err) {
-    console.error('Error fetching transaction stats:', err);
-    res.status(500).json({ error: 'Failed to fetch transaction statistics' });
+    console.error('Error getting transaction stats:', err);
+    res.status(500).json({ error: 'Failed to get transaction statistics' });
+  }
+};
+
+// Get withdrawal statistics and history
+exports.getWithdrawalStats = async (req, res) => {
+  try {
+    const sellerId = req.seller._id;
+    
+    // Calculate available balance based on completed transactions minus withdrawals
+    const deliveredOrders = await Order.find({
+      seller: sellerId,
+      status: 'Delivered',
+      paymentStatus: 'Completed'
+    });
+    
+    // Calculate total revenue
+    const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    
+    // Calculate fees
+    const platformFee = totalRevenue * 0.05; // 5% platform fee
+    const paymentProcessingFee = totalRevenue * 0.02; // 2% payment processing fee
+    
+    // Get all completed withdrawals
+    const completedWithdrawals = await Withdrawal.find({
+      seller: sellerId,
+      status: 'Completed'
+    });
+    
+    const totalWithdrawn = completedWithdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0);
+    
+    // Get pending withdrawals
+    const pendingWithdrawals = await Withdrawal.find({
+      seller: sellerId,
+      status: 'Pending'
+    });
+    
+    const pendingAmount = pendingWithdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0);
+    
+    // Calculate available balance
+    const availableBalance = totalRevenue - (platformFee + paymentProcessingFee) - totalWithdrawn - pendingAmount;
+    
+    // Get the most recent withdrawal
+    const lastWithdrawal = await Withdrawal.findOne({
+      seller: sellerId
+    }).sort({ createdAt: -1 }).limit(1);
+    
+    const result = {
+      availableBalance: Math.max(0, availableBalance), // Ensure it's not negative
+      totalWithdrawn,
+      pendingWithdrawals: pendingAmount,
+      lastWithdrawal: lastWithdrawal ? {
+        amount: lastWithdrawal.amount,
+        date: lastWithdrawal.createdAt,
+        status: lastWithdrawal.status
+      } : null
+    };
+    
+    // If this is called directly from another function, return the data
+    if (res.json) {
+      res.status(200).json(result);
+    } else {
+      return result;
+    }
+  } catch (err) {
+    console.error('Error getting withdrawal stats:', err);
+    if (res.status) {
+      res.status(500).json({ error: 'Failed to get withdrawal statistics' });
+    } else {
+      throw err;
+    }
+  }
+};
+
+// Request a withdrawal
+exports.requestWithdrawal = async (req, res) => {
+  try {
+    const sellerId = req.seller._id;
+    const { amount, paymentMethod } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid withdrawal amount' });
+    }
+    
+    if (!paymentMethod) {
+      return res.status(400).json({ error: 'Payment method is required' });
+    }
+    
+    // Verify user has enough balance
+    // Create a mock response object for getWithdrawalStats
+    const mockRes = {
+      json: null,
+      status: null
+    };
+    
+    const stats = await exports.getWithdrawalStats({ seller: req.seller }, mockRes);
+    
+    if (amount > stats.availableBalance) {
+      return res.status(400).json({ error: 'Withdrawal amount exceeds available balance' });
+    }
+    
+    // Create withdrawal request
+    const withdrawal = new Withdrawal({
+      seller: sellerId,
+      amount,
+      paymentMethod,
+      status: 'Pending',
+      notes: 'Withdrawal request submitted'
+    });
+    
+    await withdrawal.save();
+    
+    // Send email notification
+    const seller = await Seller.findById(sellerId);
+    
+    // Send email to seller
+    const sellerEmailContent = `
+      <h1>Withdrawal Request Received</h1>
+      <p>Dear ${seller.name},</p>
+      <p>We have received your withdrawal request for ₹${amount.toFixed(2)}. Your request is being processed and you will receive the funds in your ${paymentMethod === 'bank_transfer' ? 'bank account' : 'UPI account'} within 2-3 business days.</p>
+      <p>Withdrawal ID: ${withdrawal._id}</p>
+      <p>Amount: ₹${amount.toFixed(2)}</p>
+      <p>Payment Method: ${paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'UPI'}</p>
+      <p>Status: Pending</p>
+      <p>If you did not request this withdrawal, please contact our support team immediately.</p>
+      <p>Thank you for using our platform.</p>
+    `;
+    
+    // In a real app, you would use a real email sending service
+    console.log('Sending withdrawal confirmation email to seller:', sellerEmailContent);
+    
+    // Send email to admin
+    const adminEmailContent = `
+      <h1>New Withdrawal Request</h1>
+      <p>A seller has requested a withdrawal:</p>
+      <p>Seller: ${seller.name} (${seller.email})</p>
+      <p>Withdrawal ID: ${withdrawal._id}</p>
+      <p>Amount: ₹${amount.toFixed(2)}</p>
+      <p>Payment Method: ${paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'UPI'}</p>
+      <p>Please review and process this request.</p>
+    `;
+    
+    console.log('Sending withdrawal notification email to admin:', adminEmailContent);
+    
+    res.status(201).json({
+      message: 'Withdrawal request submitted successfully',
+      withdrawal: {
+        id: withdrawal._id,
+        amount: withdrawal.amount,
+        status: withdrawal.status,
+        createdAt: withdrawal.createdAt
+      }
+    });
+  } catch (err) {
+    console.error('Error requesting withdrawal:', err);
+    res.status(500).json({ error: 'Failed to process withdrawal request' });
+  }
+};
+
+// Get withdrawal history
+exports.getWithdrawalHistory = async (req, res) => {
+  try {
+    const sellerId = req.seller._id;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }
+    };
+    
+    const withdrawals = await Withdrawal.paginate({ seller: sellerId }, options);
+    
+    res.status(200).json({
+      withdrawals: withdrawals.docs,
+      pagination: {
+        currentPage: withdrawals.page,
+        totalPages: withdrawals.totalPages,
+        totalItems: withdrawals.totalDocs
+      }
+    });
+  } catch (err) {
+    console.error('Error getting withdrawal history:', err);
+    res.status(500).json({ error: 'Failed to get withdrawal history' });
+  }
+};
+
+// Cancel a pending withdrawal request
+exports.cancelWithdrawalRequest = async (req, res) => {
+  try {
+    const sellerId = req.seller._id;
+    const withdrawalId = req.params.id;
+    
+    const withdrawal = await Withdrawal.findOne({
+      _id: withdrawalId,
+      seller: sellerId,
+      status: 'Pending'
+    });
+    
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal request not found or already processed' });
+    }
+    
+    withdrawal.status = 'Cancelled';
+    withdrawal.notes = `${withdrawal.notes}\nCancelled by seller on ${new Date().toISOString()}`;
+    await withdrawal.save();
+    
+    res.status(200).json({
+      message: 'Withdrawal request cancelled successfully',
+      withdrawal: {
+        id: withdrawal._id,
+        amount: withdrawal.amount,
+        status: withdrawal.status,
+        createdAt: withdrawal.createdAt,
+        updatedAt: withdrawal.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error('Error cancelling withdrawal:', err);
+    res.status(500).json({ error: 'Failed to cancel withdrawal request' });
   }
 };
