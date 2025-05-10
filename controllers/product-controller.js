@@ -2,12 +2,75 @@ const Product = require("../models/product-model");
 
 exports.getAllProducts = async (req, res) => {
   try {
-    // By default, fetch only approved products
-    const filter = req.query.includeAll === 'true' ? {} : { approvalStatus: 'approved' };
+    const {
+      category,
+      subcategory,
+      sort = 'popular',
+      limit = 12,
+      page = 1,
+      minPrice,
+      maxPrice,
+      search,
+      isFeatured
+    } = req.query;
+
+    // Build filter object
+    const filter = { approvalStatus: 'approved' };
     
-    // Fetch products based on filter
-    const products = await Product.find(filter);
-    res.json(products);
+    if (category) filter.category = category;
+    if (subcategory) filter.subcategory = subcategory;
+    if (isFeatured) filter.isFeatured = isFeatured === 'true';
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    // Build sort object
+    let sortObj = {};
+    switch (sort) {
+      case 'price_asc':
+        sortObj = { price: 1 };
+        break;
+      case 'price_desc':
+        sortObj = { price: -1 };
+        break;
+      case 'newest':
+        sortObj = { createdAt: -1 };
+        break;
+      case 'popular':
+      default:
+        sortObj = { 'ratings.average': -1 };
+        break;
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Execute query with pagination
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(Number(limit)),
+      Product.countDocuments(filter)
+    ]);
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        page: Number(page),
+        pages: Math.ceil(total / limit),
+        limit: Number(limit)
+      }
+    });
   } catch (err) {
     console.error("Error fetching products:", err.message);
     res.status(500).json({ error: "Could not fetch products" });
@@ -24,6 +87,33 @@ exports.getProductById = async (req, res) => {
   } catch (err) {
     console.error("Error fetching product:", err.message);
     res.status(500).json({ error: "Could not fetch product" });
+  }
+};
+
+exports.getRelatedProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 4 } = req.query;
+
+    // Get the current product
+    const currentProduct = await Product.findById(id);
+    if (!currentProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Find related products based on category and subcategory
+    const relatedProducts = await Product.find({
+      _id: { $ne: id },
+      category: currentProduct.category,
+      approvalStatus: 'approved'
+    })
+    .limit(Number(limit))
+    .sort({ 'ratings.average': -1 });
+
+    res.json(relatedProducts);
+  } catch (err) {
+    console.error("Error fetching related products:", err.message);
+    res.status(500).json({ error: "Could not fetch related products" });
   }
 };
 
