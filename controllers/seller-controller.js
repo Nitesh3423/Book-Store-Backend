@@ -154,19 +154,29 @@ exports.addProduct = async (req, res) => {
 // Get seller profile
 exports.getSellerProfile = async (req, res) => {
   try {
-    // The seller ID comes from the auth middleware
-    const sellerId = req.sellerId;
+    // Check for seller identification
+    let sellerId;
+    if (req.seller && req.seller._id) {
+      // Already have the full seller object
+      return res.status(200).json(req.seller);
+    } else if (req.sellerId) {
+      sellerId = req.sellerId;
+    } else {
+      console.error('No seller identification found in request');
+      return res.status(401).json({ error: 'Seller identification missing' });
+    }
     
-    const seller = await Seller.findById(sellerId)
-      .select('-password'); // Exclude password from the response
+    const Seller = mongoose.model('Seller');
+    const seller = await Seller.findById(sellerId);
     
     if (!seller) {
       return res.status(404).json({ error: 'Seller not found' });
     }
     
-    res.json(seller);
+    res.status(200).json(seller);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch seller profile' });
+    console.error('Error fetching seller profile:', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 };
 
@@ -852,7 +862,23 @@ exports.getSellerCustomers = async (req, res) => {
 // Get transaction statistics
 exports.getTransactionStats = async (req, res) => {
   try {
-    const sellerId = req.seller._id;
+    // Log the seller information for debugging
+    console.log('Seller info in getTransactionStats:', { 
+      sellerId: req.sellerId, 
+      sellerObject: req.seller 
+    });
+
+    // Check if either req.seller._id or req.sellerId is available
+    let sellerId;
+    if (req.seller && req.seller._id) {
+      sellerId = req.seller._id;
+    } else if (req.sellerId) {
+      sellerId = req.sellerId;
+    } else {
+      console.error('No seller identification found in request');
+      return res.status(401).json({ error: 'Seller identification missing' });
+    }
+
     const { timeframe } = req.query;
 
     // Define the date range based on timeframe
@@ -967,7 +993,17 @@ exports.getTransactionStats = async (req, res) => {
 // Get withdrawal statistics and history
 exports.getWithdrawalStats = async (req, res) => {
   try {
-    const sellerId = req.seller._id;
+    // Check if this is called from another function with a seller object passed
+    let sellerId;
+    
+    if (req.seller && req.seller._id) {
+      sellerId = req.seller._id;
+    } else if (req.sellerId) {
+      sellerId = req.sellerId;
+    } else {
+      console.error('No seller identification found in request');
+      return res.status(401).json({ error: 'Seller identification missing' });
+    }
     
     // Calculate available balance based on completed transactions minus withdrawals
     const deliveredOrders = await Order.find({
@@ -1037,7 +1073,18 @@ exports.getWithdrawalStats = async (req, res) => {
 // Request a withdrawal
 exports.requestWithdrawal = async (req, res) => {
   try {
-    const sellerId = req.seller._id;
+    // Check if seller identification is available
+    let sellerId;
+    
+    if (req.seller && req.seller._id) {
+      sellerId = req.seller._id;
+    } else if (req.sellerId) {
+      sellerId = req.sellerId;
+    } else {
+      console.error('No seller identification found in request');
+      return res.status(401).json({ error: 'Seller identification missing' });
+    }
+    
     const { amount, paymentMethod } = req.body;
     
     if (!amount || amount <= 0) {

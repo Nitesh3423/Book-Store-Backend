@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
+const mongoose = require('mongoose');
 
-const sellerAuth = (req, res, next) => {
+const sellerAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -20,6 +21,21 @@ const sellerAuth = (req, res, next) => {
 
       // Set the seller ID for use in controllers
       req.sellerId = decoded.sellerId;
+      
+      // Try to fetch the seller object if possible
+      try {
+        const Seller = mongoose.model('Seller');
+        const seller = await Seller.findById(decoded.sellerId);
+        if (seller) {
+          req.seller = seller;
+        } else {
+          console.warn(`Seller with ID ${decoded.sellerId} not found in database`);
+        }
+      } catch (fetchError) {
+        console.warn('Error fetching seller object:', fetchError);
+        // Continue even if we couldn't fetch the seller object
+      }
+      
       next();
     } catch (err) {
       res.status(401).json({ error: 'Invalid or expired token' });
