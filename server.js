@@ -7,6 +7,7 @@ const sellerRoutes = require('./routes/seller-route');
 const adminRoutes = require('./routes/admin-route');
 const userRoutes = require('./routes/user-route');
 const productRoutes = require('./routes/product-routes');
+const reviewRoutes = require('./routes/review-routes');
 
 // Preload all models
 require('./models/user-model');
@@ -16,6 +17,7 @@ require('./models/order-model');
 require('./models/customer-model');
 require('./models/pending-seller-model');
 require('./models/admin-model');
+require('./models/product-review-model');
 
 const app = express();
 
@@ -34,6 +36,7 @@ app.use("/api/sellers", sellerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
