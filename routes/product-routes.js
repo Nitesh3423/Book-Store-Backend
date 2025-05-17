@@ -7,6 +7,7 @@ const sellerAuth = require("../middlewares/seller-auth");
 // Public routes
 router.get("/products", productController.getAllProducts);
 router.get("/products/:id", productController.getProductById);
+router.get("/products/:id/related", productController.getRelatedProducts);
 
 // Seller routes - require seller authentication
 router.post("/sellers/products", sellerAuth, productController.createProduct);
