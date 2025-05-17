@@ -41,6 +41,8 @@ const userSchema = new mongoose.Schema(
     address: {
       type: String,
     },
+    pincode:{type:String},
+    avatar: {type:String},
     cart: [cartItemSchema],
     orders: [
       {

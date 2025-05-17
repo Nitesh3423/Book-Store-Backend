@@ -7,7 +7,7 @@ const sellerRoutes = require('./routes/seller-route');
 const adminRoutes = require('./routes/admin-route');
 const userRoutes = require('./routes/user-route');
 const productRoutes =require('./routes/product-routes')
-
+const paymentRoutes = require('./routes/payment-routes')
 const app = express();
 
 // Enable CORS for all routes
@@ -18,11 +18,11 @@ app.use(bodyParser.json());
 connectDB();
 
 // Routes
-app.use("/api", productRoutes);
+app.use("/api/product", productRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
-
+app.use('/api/payments', paymentRoutes);
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
