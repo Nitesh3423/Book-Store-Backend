@@ -67,6 +67,8 @@ const userSchema = new mongoose.Schema(
       type: profileSchema,
       default: () => ({}),
     },
+    pincode:{type:String},
+    avatar: {type:String},
     cart: [cartItemSchema],
     wishlist: [wishlistItemSchema],
     orders: [

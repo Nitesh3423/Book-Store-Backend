@@ -46,7 +46,7 @@ exports.googleLogin = async (req, res) => {
 // Register
 exports.registerUser = async (req, res) => {
   try {
-    const { fullName, email, password, googleId } = req.body;
+    const { fullName, email, password, googleId, phone, avatar, address, pincode } = req.body;
 
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ error: "User already exists" });
@@ -58,6 +58,10 @@ exports.registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       googleId,
+      phone,
+      avatar,
+      address,
+      pincode,
     });
 
     await newUser.save();
@@ -100,7 +104,7 @@ exports.loginUser = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select(
-      "fullName email profile"
+      "fullName email profile phone avatar address pincode"
     );
     res.json(user);
   } catch (error) {

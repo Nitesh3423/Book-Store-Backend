@@ -3,11 +3,13 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./utils/db');
+
 const sellerRoutes = require('./routes/seller-route');
 const adminRoutes = require('./routes/admin-route');
 const userRoutes = require('./routes/user-route');
 const productRoutes = require('./routes/product-routes');
 const reviewRoutes = require('./routes/review-routes');
+const paymentRoutes = require('./routes/payment-routes');
 
 // Preload all models
 require('./models/user-model');
@@ -21,27 +23,30 @@ require('./models/product-review-model');
 
 const app = express();
 
-// Enable CORS for all routes
+// Enable CORS
 app.use(cors());
 
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Connect to Database
+// Connect to DB
 connectDB();
 
 // Routes
 app.use("/api/sellers", sellerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/products", productRoutes);
+app.use("/api/products", productRoutes);  // Use plural for consistency
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/payments", paymentRoutes);
 
-// Error handling middleware
+// Error handler
 app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
