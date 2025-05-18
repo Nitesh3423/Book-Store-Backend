@@ -3,7 +3,6 @@ const PendingSeller = require('../models/pending-seller-model');
 const Product = require('../models/product-model');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
-
 // Register seller (Pending)
 exports.registerSeller = async (req, res) => {
   try {
@@ -26,7 +25,7 @@ exports.registerSeller = async (req, res) => {
     res.status(201).json({ success: true, message: 'Seller request submitted for approval' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: 'Error submitting request' });
+    res.status(500).json({ error: 'Error submitting request' });
   }
 };
 
@@ -91,6 +90,7 @@ exports.loginSeller = async (req, res) => {
 // Add product by seller
 exports.addProduct = async (req, res) => {
   try {
+    const sellerId = req.sellerId;
     const {
       name,
       description,
@@ -108,13 +108,12 @@ exports.addProduct = async (req, res) => {
       shippingDetails,
       returnPolicy,
       isFeatured,
-      isPublished,
-      sellerId,
+      isPublished
     } = req.body;
 
     const seller = await Seller.findById(sellerId);
     if (!seller)
-      return res.status(403).json({ success: false, error: 'Only approved sellers can add products' });
+      return res.status(403).json({ error: 'Only approved sellers can add products' });
 
     const product = new Product({
       name,
@@ -135,11 +134,13 @@ exports.addProduct = async (req, res) => {
       isFeatured,
       isPublished,
       sellerId,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
     await product.save();
-    res.status(201).json({ success: true, message: 'Product added', product });
+    res.status(201).json({ message: 'Product added', product });
   } catch (err) {
-    res.status(500).json({ success: false, error: 'Error adding product' });
+    res.status(500).json({ error: 'Error adding product' });
   }
 };

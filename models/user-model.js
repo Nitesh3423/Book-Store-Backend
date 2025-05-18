@@ -11,6 +11,34 @@ const cartItemSchema = new mongoose.Schema({
     default: 1,
   },
 });
+
+const wishlistItemSchema = new mongoose.Schema({
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+    required: true,
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+const profileSchema = new mongoose.Schema({
+  phone: {
+    type: String,
+    default: "",
+  },
+  address: {
+    type: String,
+    default: "",
+  },
+  avatar: {
+    type: String,
+    default: "",
+  },
+});
+
 const OrderSchema = new mongoose.Schema({
   products: [cartItemSchema],
   totalAmount: Number,
@@ -35,15 +63,14 @@ const userSchema = new mongoose.Schema(
     googleId: {
       type: String,
     },
-    phone: {
-      type: String,
-    },
-    address: {
-      type: String,
+    profile: {
+      type: profileSchema,
+      default: () => ({}),
     },
     pincode:{type:String},
     avatar: {type:String},
     cart: [cartItemSchema],
+    wishlist: [wishlistItemSchema],
     orders: [
       {
         type: mongoose.Schema.Types.ObjectId,

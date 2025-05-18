@@ -2,9 +2,12 @@ const Product = require("../models/product-model");
 
 exports.getAllProducts = async (req, res) => {
   try {
+    // By default, fetch only approved products
     const filter = req.query.includeAll === 'true' ? {} : { approvalStatus: 'approved' };
+    
+    // Fetch products based on filter
     const products = await Product.find(filter);
-    res.json({ success: true, products });
+    res.json(products);
   } catch (err) {
     console.error("Error fetching products:", err.message);
     res.status(500).json({ success: false, error: "Could not fetch products" });
@@ -21,6 +24,33 @@ exports.getProductById = async (req, res) => {
   } catch (err) {
     console.error("Error fetching product:", err.message);
     res.status(500).json({ success: false, error: "Could not fetch product" });
+  }
+};
+
+exports.getRelatedProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 4 } = req.query;
+
+    // Get the current product
+    const currentProduct = await Product.findById(id);
+    if (!currentProduct) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Find related products based on category and subcategory
+    const relatedProducts = await Product.find({
+      _id: { $ne: id },
+      category: currentProduct.category,
+      approvalStatus: 'approved'
+    })
+    .limit(Number(limit))
+    .sort({ 'ratings.average': -1 });
+
+    res.json(relatedProducts);
+  } catch (err) {
+    console.error("Error fetching related products:", err.message);
+    res.status(500).json({ error: "Could not fetch related products" });
   }
 };
 

@@ -107,27 +107,30 @@ exports.getProfile = async (req, res) => {
     const user = await User.findById(req.user._id).select(
       "fullName email profile phone avatar address pincode"
     );
-    res.json({ success: true, user });
+    res.json(user);
   } catch {
-    res.status(500).json({ success: false, error: "Could not fetch profile" });
+    res.status(500).json({ error: "Could not fetch profile" });
   }
 };
 
 exports.updateProfile = async (req, res) => {
   try {
     const { address, phone, avatar } = req.body;
+    
+    // Validate input if necessary
+    const updatedProfile = {};
+    if (address !== undefined) updatedProfile["profile.address"] = address;
+    if (phone !== undefined) updatedProfile["profile.phone"] = phone;
+    if (avatar !== undefined) updatedProfile["profile.avatar"] = avatar;
+    
     const updated = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        "profile.address": address,
-        "profile.phone": phone,
-        "profile.avatar": avatar,
-      },
+      updatedProfile,
       { new: true }
     );
-    res.json({ success: true, updated });
+    res.json(updated);
   } catch {
-    res.status(500).json({ success: false, error: "Profile update failed" });
+    res.status(500).json({ error: "Profile update failed" });
   }
 };
 
