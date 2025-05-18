@@ -13,10 +13,16 @@ exports.createRazorpayOrder = async (req, res) => {
     };
 
     const order = await razorpay.orders.create(options);
-    res.status(200).json({ orderId: order.id, amount: order.amount, currency: order.currency });
+    res.status(200).json({
+      success: true,
+      message: "Razorpay order created successfully",
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
   } catch (error) {
     console.error("Error creating Razorpay order:", error);
-    res.status(500).json({ error: "Failed to create Razorpay order" });
+    res.status(500).json({ success: false, error: "Failed to create Razorpay order" });
   }
 };
 
@@ -32,13 +38,16 @@ exports.verifyRazorpayPayment = async (req, res) => {
 
     if (sign === razorpay_signature) {
       // Payment is verified, proceed to place order
-      // Save to orders DB if needed
-      res.status(200).json({ message: "Payment verified successfully" });
+      res.status(200).json({
+        success: true,
+        message: "Payment verified successfully",
+        paymentId: razorpay_payment_id,
+      });
     } else {
-      res.status(400).json({ error: "Invalid signature" });
+      res.status(400).json({ success: false, error: "Invalid signature" });
     }
   } catch (error) {
     console.error("Verification error:", error);
-    res.status(500).json({ error: "Payment verification failed" });
+    res.status(500).json({ success: false, error: "Payment verification failed" });
   }
 };
