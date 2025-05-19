@@ -144,3 +144,294 @@ exports.addProduct = async (req, res) => {
     res.status(500).json({ error: 'Error adding product' });
   }
 };
+
+exports.getSellerProfile = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.user.sellerId).select('-password');
+    res.json({ success: true, seller });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch profile' });
+  }
+};
+
+// PUT /profile
+exports.updateSellerProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const updatedSeller = await Seller.findByIdAndUpdate(
+      req.user.sellerId,
+      updates,
+      { new: true, runValidators: true }
+    ).select('-password');
+    res.json({ success: true, seller: updatedSeller });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to update profile' });
+  }
+};
+
+// PUT /update-password
+exports.updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const seller = await Seller.findById(req.user.sellerId);
+    const isMatch = await bcrypt.compare(currentPassword, seller.password);
+    if (!isMatch) return res.status(400).json({ success: false, error: 'Incorrect current password' });
+
+    seller.password = await bcrypt.hash(newPassword, 10);
+    await seller.save();
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch {
+    res.status(500).json({ success: false, error: 'Password update failed' });
+  }
+};
+
+// GET /products
+exports.getSellerProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ sellerId: req.user.sellerId });
+    res.json({ success: true, products });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch products' });
+  }
+};
+
+// GET /products/:id
+exports.getProductById = async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, sellerId: req.user.sellerId });
+    if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+    res.json({ success: true, product });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch product' });
+  }
+};
+
+// PUT /products/:id
+exports.updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findOneAndUpdate(
+      { _id: req.params.id, sellerId: req.user.sellerId },
+      req.body,
+      { new: true }
+    );
+    if (!product) return res.status(404).json({ success: false, error: 'Product not found or unauthorized' });
+    res.json({ success: true, product });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to update product' });
+  }
+};
+
+// DELETE /products/:id
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findOneAndDelete({
+      _id: req.params.id,
+      sellerId: req.user.sellerId,
+    });
+    if (!product) return res.status(404).json({ success: false, error: 'Product not found or unauthorized' });
+    res.json({ success: true, message: 'Product deleted' });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to delete product' });
+  }
+};
+
+// GET /orders
+exports.getSellerOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ 'products.sellerId': req.user.sellerId }).populate('products.product');
+    res.json({ success: true, orders });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch orders' });
+  }
+};
+
+// GET /orders/:id
+exports.getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      'products.sellerId': req.user.sellerId,
+    }).populate('products.product');
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    res.json({ success: true, order });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch order' });
+  }
+};
+
+// PUT /orders/:id/status
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const order = await Order.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        'products.sellerId': req.user.sellerId,
+      },
+      { status },
+      { new: true }
+    );
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found or unauthorized' });
+    res.json({ success: true, message: 'Order status updated', order });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to update order status' });
+  }
+};
+
+// GET /customers
+exports.getSellerCustomers = async (req, res) => {
+  try {
+    const orders = await Order.find({ 'products.sellerId': req.user.sellerId }).populate('user');
+    const customersMap = new Map();
+    orders.forEach(order => {
+      const user = order.user;
+      if (user) customersMap.set(user._id.toString(), user);
+    });
+
+    res.json({ success: true, customers: Array.from(customersMap.values()) });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch customers' });
+  }
+};
+
+// GET /transaction-stats
+exports.getTransactionStats = async (req, res) => {
+  try {
+    const orders = await Order.find({ 'products.sellerId': req.user.sellerId });
+    let totalRevenue = 0;
+    let totalOrders = orders.length;
+
+    orders.forEach(order => {
+      order.products.forEach(p => {
+        if (p.sellerId.toString() === req.user.sellerId) {
+          totalRevenue += p.product.price * p.quantity;
+        }
+      });
+    });
+
+    res.json({ success: true, totalOrders, totalRevenue });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch stats' });
+  }
+};
+
+// GET /dashboard/stats
+exports.getSellerDashboardStats = async (req, res) => {
+  try {
+    const sellerId = req.user.sellerId;
+
+    const [productCount, orders, totalRevenue] = await Promise.all([
+      Product.countDocuments({ sellerId }),
+      Order.find({ 'products.sellerId': sellerId }),
+      Order.aggregate([
+        { $unwind: "$products" },
+        { $match: { "products.sellerId": sellerId } },
+        {
+          $group: {
+            _id: null,
+            revenue: { $sum: { $multiply: ["$products.quantity", "$products.product.price"] } }
+          }
+        }
+      ])
+    ]);
+
+    const revenue = totalRevenue[0]?.revenue || 0;
+
+    res.json({
+      success: true,
+      stats: {
+        productCount,
+        orderCount: orders.length,
+        totalRevenue: revenue
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching dashboard stats:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch dashboard stats" });
+  }
+};
+
+exports.getWithdrawalStats = async (req, res) => {
+  try {
+    const sellerId = req.user.sellerId;
+
+    const [totalRequested, totalPaid] = await Promise.all([
+      Withdrawal.aggregate([
+        { $match: { sellerId, status: { $in: ["pending", "approved", "paid"] } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]),
+      Withdrawal.aggregate([
+        { $match: { sellerId, status: "paid" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalRequested: totalRequested[0]?.total || 0,
+        totalPaid: totalPaid[0]?.total || 0,
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching withdrawal stats:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch stats" });
+  }
+};
+exports.requestWithdrawal = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const sellerId = req.user.sellerId;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid withdrawal amount" });
+    }
+
+    const withdrawal = new Withdrawal({
+      sellerId,
+      amount,
+      status: "pending",
+      requestedAt: new Date(),
+    });
+
+    await withdrawal.save();
+    res.status(201).json({ success: true, message: "Withdrawal request submitted", withdrawal });
+  } catch (err) {
+    console.error("Error requesting withdrawal:", err);
+    res.status(500).json({ success: false, error: "Failed to request withdrawal" });
+  }
+};
+
+exports.getWithdrawalHistory = async (req, res) => {
+  try {
+    const sellerId = req.user.sellerId;
+    const withdrawals = await Withdrawal.find({ sellerId }).sort({ requestedAt: -1 });
+
+    res.json({ success: true, withdrawals });
+  } catch (err) {
+    console.error("Error fetching withdrawal history:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch withdrawal history" });
+  }
+};
+exports.cancelWithdrawalRequest = async (req, res) => {
+  try {
+    const sellerId = req.user.sellerId;
+    const { id } = req.params;
+
+    const withdrawal = await Withdrawal.findOne({ _id: id, sellerId });
+
+    if (!withdrawal)
+      return res.status(404).json({ success: false, error: "Withdrawal request not found" });
+
+    if (withdrawal.status !== "pending")
+      return res.status(400).json({ success: false, error: "Only pending requests can be cancelled" });
+
+    withdrawal.status = "cancelled";
+    await withdrawal.save();
+
+    res.json({ success: true, message: "Withdrawal request cancelled" });
+  } catch (err) {
+    console.error("Error cancelling withdrawal:", err);
+    res.status(500).json({ success: false, error: "Failed to cancel request" });
+  }
+};

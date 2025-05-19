@@ -6,7 +6,7 @@ const sellerAuth = require('../middlewares/seller-auth');
 // Public seller routes
 router.post('/register', sellerController.registerSeller);
 router.post('/login', sellerController.loginSeller);
-router.post('/logout', sellerController.logoutSeller);
+
 
 // Protected seller routes
 router.get('/profile', sellerAuth, sellerController.getSellerProfile);
